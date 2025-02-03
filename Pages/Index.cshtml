@@ -1,0 +1,301 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Home page";
+}
+
+<h2>Gestión de Clientes</h2>
+
+<!-- Login Form -->
+<div id="loginForm" class="mb-4">
+    <h3>Iniciar Sesión</h3>
+    <input type="text" id="username" class="form-control mb-2" placeholder="Usuario" />
+    <input type="password" id="password" class="form-control mb-2" placeholder="Contraseña" />
+    <button id="btnLogin" class="btn btn-primary">Login</button>
+    <p id="loginError" style="color: red; display: none;">Credenciales inválidas</p>
+</div>
+
+<!-- Cliente CRUD (Oculto hasta autenticación) -->
+<div id="clientCrud" style="display: none;">
+    <h3>Clientes</h3>
+
+    <!-- Filtro de clientes -->
+    <div class="mb-3">
+        <input type="text" id="clientFilter" class="form-control mb-2" placeholder="Filtrar por nombre, cédula, etc." />
+    </div>
+
+    <button id="btnLoadClients" class="btn btn-secondary mb-2">Cargar Clientes</button>
+    <table class="table table-bordered table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Género</th>
+                <th>Fecha de Nacimiento</th>
+                <th>Estado Civil</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody id="clientList"></tbody>
+    </table>
+
+    <h3>Crear Cliente</h3>
+    <input type="text" id="clientCedula" class="form-control mb-2" placeholder="Cédula" />
+    <input type="text" id="clientName" class="form-control mb-2" placeholder="Nombre del Cliente" />
+
+    <!-- Genero como combo -->
+    <select id="clientGenero" class="form-control mb-2">
+        <option value="masculino">Masculino</option>
+        <option value="femenino">Femenino</option>
+        <option value="otro">Otro</option>
+    </select>
+
+    <input type="date" id="clientFechaNac" class="form-control mb-2" />
+
+    <!-- Estado Civil como combo -->
+    <select id="clientEstadoCivil" class="form-control mb-2">
+        <option value="soltero">Soltero</option>
+        <option value="casado">Casado</option>
+        <option value="viudo">Viudo</option>
+        <option value="divorciado">Divorciado</option>
+    </select>
+
+    <button id="btnCreateClient" class="btn btn-success">Crear Cliente</button>
+</div>
+
+<!-- Modal para editar cliente -->
+<div id="editClientModal" class="modal fade" tabindex="-1" aria-labelledby="editClientModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editClientModalLabel">Editar Cliente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="editClientIdClie" class="form-control mb-2" placeholder="ID Cliente" readonly />
+                <input type="text" id="editClientCedula" class="form-control mb-2" placeholder="Cédula" />
+                <input type="text" id="editClientName" class="form-control mb-2" placeholder="Nombre del Cliente" />
+
+                <!-- Genero como combo -->
+                <select id="editClientGenero" class="form-control mb-2">
+                    <option value="masculino">Masculino</option>
+                    <option value="femenino">Femenino</option>
+                    <option value="otro">Otro</option>
+                </select>
+
+                <input type="date" id="editClientFechaNac" class="form-control mb-2" />
+
+                <!-- Estado Civil como combo -->
+                <select id="editClientEstadoCivil" class="form-control mb-2">
+                    <option value="soltero">Soltero</option>
+                    <option value="casado">Casado</option>
+                    <option value="viudo">Viudo</option>
+                    <option value="divorciado">Divorciado</option>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" id="btnSaveClient" class="btn btn-primary">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            console.log('Script cargado');
+
+            // Tooltips
+            $('[title]').tooltip();
+
+            // Filtrar clientes
+            $('#clientFilter').on('input', function () {
+                var filter = $(this).val().toLowerCase();
+                $('#clientList tr').each(function () {
+                    var rowText = $(this).text().toLowerCase();
+                    if (rowText.includes(filter)) {
+                        $(this).show();
+                    } else {
+                        $(this).hide();
+                    }
+                });
+            });
+
+            // Cargar clientes
+            $('#btnLoadClients').click(function () {
+                var token = localStorage.getItem('authToken');
+                $.ajax({
+                    url: 'https://localhost:44384/api/Clie',
+                    type: 'GET',
+                    headers: { 'Authorization': 'Bearer ' + token },
+                    success: function (clients) {
+                        var clientList = $('#clientList');
+                        clientList.empty();
+                        if (clients && clients.length > 0) {
+                            clients.forEach(function (client) {
+                                clientList.append(
+                                    '<tr>' +
+                                    '<td>' + client.idClie + '</td>' +
+                                    '<td>' + client.nombre + '</td>' +
+                                    '<td>' + client.genero + '</td>' +
+                                    '<td>' + new Date(client.fechaNac).toLocaleDateString() + '</td>' +
+                                    '<td>' + client.estadoCivil + '</td>' +
+                                    '<td>' +
+                                    '<button class="btnEditClient btn btn-warning btn-sm" data-id="' + client.idClie + '">Editar</button>' +
+                                    '<button class="btnDeleteClient btn btn-danger btn-sm" data-id="' + client.idClie + '">Eliminar</button>' +
+                                    '</td>' +
+                                    '</tr>'
+                                );
+                            });
+                        } else {
+                            clientList.append('<tr><td colspan="6">No se encontraron clientes.</td></tr>');
+                        }
+                    },
+                    error: function () {
+                        alert('Error al cargar los clientes');
+                    }
+                });
+            });
+
+            // Crear cliente
+            $('#btnCreateClient').click(function () {
+                var clientCedula = $('#clientCedula').val();
+                var clientName = $('#clientName').val();
+                var clientGenero = $('#clientGenero').val();
+                var clientFechaNac = $('#clientFechaNac').val();
+                var clientEstadoCivil = $('#clientEstadoCivil').val();
+                var token = localStorage.getItem('authToken');
+
+                var clientData = {
+                    Cedula: clientCedula,
+                    Nombre: clientName,
+                    Genero: clientGenero,
+                    FechaNac: clientFechaNac,
+                    EstadoCivil: clientEstadoCivil
+                };
+
+                $.ajax({
+                    url: 'https://localhost:44384/api/Clie',
+                    type: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token },
+                    contentType: 'application/json',
+                    data: JSON.stringify(clientData),
+                    success: function () {
+                        $('#btnLoadClients').click();
+                        $('#clientCedula').val('');
+                        $('#clientName').val('');
+                        $('#clientGenero').val('masculino');
+                        $('#clientFechaNac').val('');
+                        $('#clientEstadoCivil').val('soltero');
+                    },
+                    error: function () {
+                        alert('Error al crear el cliente');
+                    }
+                });
+            });
+
+            // Editar cliente
+            $(document).on('click', '.btnEditClient', function () {
+                var clientId = $(this).data('id');
+                var token = localStorage.getItem('authToken');
+
+                $.ajax({
+                    url: 'https://localhost:44384/api/Clie/' + clientId,
+                    type: 'GET',
+                    headers: { 'Authorization': 'Bearer ' + token },
+                    success: function (client) {
+                        $('#editClientIdClie').val(client.idClie);
+                        $('#editClientCedula').val(client.cedula);
+                        $('#editClientName').val(client.nombre);
+                        $('#editClientGenero').val(client.genero);
+                        $('#editClientFechaNac').val(client.fechaNac.split('T')[0]);
+                        $('#editClientEstadoCivil').val(client.estadoCivil);
+                        $('#editClientModal').modal('show');
+                    },
+                    error: function () {
+                        alert('Error al cargar los datos del cliente');
+                    }
+                });
+            });
+
+            // Guardar cambios de cliente
+            $('#btnSaveClient').click(function () {
+                var clientId = $('#editClientIdClie').val();
+                var clientCedula = $('#editClientCedula').val();
+                var clientName = $('#editClientName').val();
+                var clientGenero = $('#editClientGenero').val();
+                var clientFechaNac = $('#editClientFechaNac').val();
+                var clientEstadoCivil = $('#editClientEstadoCivil').val();
+                var token = localStorage.getItem('authToken');
+
+                var clientData = {
+                    IdClie: clientId,
+                    Cedula: clientCedula,
+                    Nombre: clientName,
+                    Genero: clientGenero,
+                    FechaNac: clientFechaNac,
+                    EstadoCivil: clientEstadoCivil
+                };
+
+                $.ajax({
+                    url: 'https://localhost:44384/api/Clie/' + clientId,
+                    type: 'PUT',
+                    headers: { 'Authorization': 'Bearer ' + token },
+                    contentType: 'application/json',
+                    data: JSON.stringify(clientData),
+                    success: function () {
+                        $('#btnLoadClients').click();
+                        $('#editClientModal').modal('hide');
+                    },
+                    error: function () {
+                        alert('Error al guardar los cambios');
+                    }
+                });
+            });
+
+            // Eliminar cliente
+            $(document).on('click', '.btnDeleteClient', function () {
+                var clientId = $(this).data('id');
+                var token = localStorage.getItem('authToken');
+                var confirmDelete = confirm('¿Está seguro de eliminar este cliente?');
+
+                if (confirmDelete) {
+                    $.ajax({
+                        url: 'https://localhost:44384/api/Clie/' + clientId,
+                        type: 'DELETE',
+                        headers: { 'Authorization': 'Bearer ' + token },
+                        success: function () {
+                            $('#btnLoadClients').click();
+                        },
+                        error: function () {
+                            alert('Error al eliminar el cliente');
+                        }
+                    });
+                }
+            });
+
+            // Login Button click event
+            $('#btnLogin').click(function () {
+                var username = $('#username').val();
+                var password = $('#password').val();
+
+                $.ajax({
+                    url: 'https://localhost:44384/api/Auth/login',
+                    type: 'POST',
+                    data: JSON.stringify({ username: username, password: password }),
+                    contentType: 'application/json',
+                    success: function (data) {
+                        localStorage.setItem('authToken', data.token);
+                        $('#loginForm').hide();
+                        $('#clientCrud').show();
+                    },
+                    error: function () {
+                        $('#loginError').show();
+                    }
+                });
+            });
+        });
+    </script>
+}
